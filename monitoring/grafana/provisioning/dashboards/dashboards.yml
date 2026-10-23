@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: fraudstream
+    folder: FraudStream
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards
