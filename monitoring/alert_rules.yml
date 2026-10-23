@@ -1,0 +1,53 @@
+groups:
+  - name: fraudstream-slos
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.job }} is not reporting metrics"
+          runbook: "README.md#runbook-servicedown"
+
+      - alert: SparkQueryStopped
+        expr: fs_spark_query_active == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Streaming query {{ $labels.query }} stopped. Fraud is not being detected."
+
+      - alert: SparkFallingBehind
+        expr: avg_over_time(fs_spark_input_rows_per_second[5m]) > 1.2 * avg_over_time(fs_spark_processed_rows_per_second[5m])
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Spark query {{ $labels.query }} is processing slower than data arrives"
+
+      - alert: CircuitBreakerOpen
+        expr: fs_circuit_breaker_state == 2
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "Case-management API circuit is open; alerts are going to the DLQ"
+          runbook: "README.md#runbook-circuitbreakeropen"
+
+      - alert: DeadLetterRateHigh
+        expr: sum(rate(fs_alerts_outcome_total{outcome="dead_lettered"}[5m])) / sum(rate(fs_alerts_outcome_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 5% of alerts are being dead-lettered"
+
+      - alert: DetectionLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(fs_alert_detection_lag_seconds_bucket[5m]))) > 30
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 detection-to-case latency above 30s"
+
+      - alert: ConsumerLagGrowing
+        expr: sum(fs_consumer_lag_messages) > 1000
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Alert service is {{ $value }} messages behind"
